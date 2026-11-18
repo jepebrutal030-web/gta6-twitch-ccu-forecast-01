@@ -141,6 +141,19 @@ def median_log_ratio(curves, hour: int):
     return statistics.median(vals)
 
 
+# Baked-in console rolling-midnight shape (median ratio to hour 1), fitted on the
+# six console-only rolling-midnight comparables in the kit (FFVII Rebirth, Ghost of
+# Yotei, Monster Hunter Wilds, Resident Evil Requiem, The Last of Us Part II,
+# Zelda: Tears of the Kingdom). Used only as a fallback when a case ships no
+# console-rolling comparables of its own; the run-time fit is preferred.
+BAKED_CR_MEDIAN_RATIO = {
+    2: 0.83, 3: 0.68, 4: 0.59, 5: 0.82, 6: 1.14, 7: 1.10, 8: 1.11, 9: 1.17,
+    10: 1.24, 11: 1.31, 12: 1.48, 13: 1.80, 14: 2.11, 15: 2.43, 16: 2.45,
+    17: 2.55, 18: 2.56, 19: 2.60, 20: 2.52, 21: 2.41, 22: 2.32, 23: 2.21,
+    24: 1.99,
+}
+
+
 def hour_median_and_spread(curves, cr_curves, p1: float, hour: int):
     """Return (median log-ratio m, spread s) for one forecast hour."""
     # --- regression of log-ratio on log(hour-1) over all curves ---
@@ -156,10 +169,12 @@ def hour_median_and_spread(curves, cr_curves, p1: float, hour: int):
         m_reg = a + b * math.log(max(p1, 1.0))
         s_res = statistics.pstdev(resid) if len(resid) > 1 else 0.5
 
-    # --- console-rolling shape median ---
+    # --- console-rolling shape median (run-time fit, else baked-in fallback) ---
     m_cr = None
     if len(cr_curves) >= MIN_CR_N:
         m_cr = median_log_ratio(cr_curves, hour)
+    if m_cr is None and hour in BAKED_CR_MEDIAN_RATIO:
+        m_cr = math.log(BAKED_CR_MEDIAN_RATIO[hour])
 
     # --- blend: average the two medians when both exist ---
     parts = [m for m in (m_reg, m_cr) if m is not None]
